@@ -22,6 +22,7 @@ except ImportError:
     from PySide2.QtGui import QIcon, QColor
 
 import maya.cmds as cmds
+import maya.mel as mel
 from . import core
 from . import widgets
 
@@ -1267,6 +1268,29 @@ class ShelfManager(QDialog):
             self._btn_icon_edit.setText(cleaned)  # triggers the normal save
 
     def _browse_icon(self):
+        menu = QMenu(self)
+        menu.addAction("Maya Icons...", self._browse_maya_icons)
+        menu.addAction("Browse File...", self._browse_icon_file)
+        menu.exec_(self._btn_icon_browse.mapToGlobal(
+            self._btn_icon_browse.rect().bottomLeft()))
+
+    def _browse_icon_file(self):
+        try:
+            filters = mel.eval("buildPixmapFileFilterList()")
+        except Exception:
+            filters = "All Files (*.*)"
+        file_list = cmds.fileDialog2(
+            caption="Pick Icon",
+            fileMode=1,
+            okCaption="Pick Icon",
+            fileFilter=filters,
+            startingDirectory=cmds.internalVar(userBitmapsDir=True),
+        )
+        if file_list and file_list[0]:
+            self._on_icon_selected(file_list[0])
+
+
+    def _browse_maya_icons(self):
         try:
             from . import icon_chooser
             chooser = icon_chooser.IconChooserDialog(callback=self._on_icon_selected, parent=self)
