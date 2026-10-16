@@ -1,5 +1,5 @@
 try:
-    from PySide6.QtCore import Qt, Signal, QEvent
+    from PySide6.QtCore import Qt, Signal, QEvent, QTimer
     from PySide6.QtWidgets import (
         QDialog, QVBoxLayout, QHBoxLayout, QSplitter, QListWidget,
         QListWidgetItem, QPushButton, QLabel, QLineEdit, QFormLayout,
@@ -10,7 +10,7 @@ try:
     )
     from PySide6.QtGui import QIcon, QColor
 except ImportError:
-    from PySide2.QtCore import Qt, Signal, QEvent
+    from PySide2.QtCore import Qt, Signal, QEvent, QTimer
     from PySide2.QtWidgets import (
         QDialog, QVBoxLayout, QHBoxLayout, QSplitter, QListWidget,
         QListWidgetItem, QPushButton, QLabel, QLineEdit, QFormLayout,
@@ -1235,6 +1235,7 @@ class ShelfManager(QDialog):
         }
 
         core.update_button(self._current_shelf, idx, updates)
+        self._refresh_panels()
 
         # Update list item display
         item = self._button_list.item(idx)
@@ -1372,6 +1373,9 @@ class ShelfManager(QDialog):
             insert_pos = row if row < start else row - 1
             buttons.insert(insert_pos, btn)
             core.update_shelf_buttons(self._current_shelf, buttons)
+            # Update the shelf windows. Deferred: rowsMoved fires in
+            # the middle of the drop, so don't run processEvents inside it.
+            QTimer.singleShot(0, self._refresh_panels)
 
     # Submenu operations
     def _refresh_submenu_list(self):
