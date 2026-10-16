@@ -1515,6 +1515,16 @@ def show_with_button(shelf_name, button_index):
     _manager_instance.show()
 
 
+def notify_shelf_changed(shelf_name):
+    """Called by widgets.py after a shelf window changed a shelf's buttons."""
+    try:
+        if _manager_instance and _manager_instance.isVisible() \
+                and _manager_instance._current_shelf == shelf_name:
+            _manager_instance._refresh_button_list()
+    except RuntimeError:
+        pass  # manager window was already deleted
+
+
 def notify_panel_closed(workspace_name):
     """Called by widgets.py when a panel is closed externally."""
     global _manager_instance
