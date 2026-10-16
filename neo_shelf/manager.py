@@ -1285,19 +1285,48 @@ class ShelfManager(QDialog):
     def _on_icon_selected(self, icon_name):
         self._btn_icon_edit.setText(icon_name)
 
+
+    # insert after selection, select the result
+    def _insert_index(self):
+        """Index just after the last selected row, or None (= append) if nothing is selected."""
+        if self._current_button_indices:
+            return max(self._current_button_indices) + 1
+        return None
+
+    def _select_button_rows(self, rows):
+        """Select the given rows in the button list and update the property panel once."""
+        count = self._button_list.count()
+        rows = [r for r in rows if 0 <= r < count]
+        if not rows:
+            return
+        self._button_list.blockSignals(True)
+        self._button_list.clearSelection()
+        self._button_list.setCurrentRow(rows[0])
+        for r in rows:
+            self._button_list.item(r).setSelected(True)
+        self._button_list.blockSignals(False)
+        self._on_button_selection_changed()
+
     def _add_button(self):
         if not self._current_shelf:
             return
+        index = self._insert_index()
         new_btn = core.make_default_button(command="print('new')")
-        core.add_button_to_shelf(self._current_shelf, new_btn)
+        core.add_button_to_shelf(self._current_shelf, new_btn, index)
         self._refresh_button_list()
-        self._button_list.setCurrentRow(self._button_list.count() - 1)
+        row = self._button_list.count() - 1 if index is None else index
+        self._select_button_rows([row])
+        self._refresh_panels()
 
     def _add_separator(self):
         if not self._current_shelf:
             return
-        core.add_button_to_shelf(self._current_shelf, core.make_separator())
+        index = self._insert_index()
+        core.add_button_to_shelf(self._current_shelf, core.make_separator(), index)
         self._refresh_button_list()
+        row = self._button_list.count() - 1 if index is None else index
+        self._select_button_rows([row])
+        self._refresh_panels()
 
     def _duplicate_button(self):
         if not self._current_shelf or not self._current_button_indices:
@@ -1309,21 +1338,32 @@ class ShelfManager(QDialog):
 
         buttons = shelf_data.get("buttons", [])
         import copy
+        insert_at = self._insert_index()  # copies go after the last selected button
+        new_rows = []
         for idx in sorted(self._current_button_indices):
             if idx < len(buttons):
-                core.add_button_to_shelf(self._current_shelf, copy.deepcopy(buttons[idx]))
+                core.add_button_to_shelf(self._current_shelf, copy.deepcopy(buttons[idx]), insert_at)
+                new_rows.append(insert_at)
+                insert_at += 1
 
         self._refresh_button_list()
+        self._select_button_rows(new_rows)
+        self._refresh_panels()
 
     def _delete_button(self):
         if not self._current_shelf or not self._current_button_indices:
             return
-
+        first_deleted = min(self._current_button_indices)
         for idx in sorted(self._current_button_indices, reverse=True):
             core.remove_button(self._current_shelf, idx)
 
         self._current_button_indices = []
         self._refresh_button_list()
+        # Select the button before the deleted one; if the first one was
+        # deleted, select the new first button. Nothing if the list is empty.
+        self._select_button_rows([max(first_deleted - 1, 0)])
+        self._refresh_panels()
+
 
     def _transfer_buttons(self, target_shelf):
         if not self._current_shelf or not self._current_button_indices:
