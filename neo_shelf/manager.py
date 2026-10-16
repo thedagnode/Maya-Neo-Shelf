@@ -746,22 +746,36 @@ class ShelfManager(QDialog):
         self._shelf_close_btn.setEnabled(is_open)
         self._shelf_refresh_btn.setEnabled(is_open)
 
-    def _refresh_shelf_list(self):
+
+    def _refresh_shelf_list(self, reload=True):
+        """Rebuild the shelf list, keeping the current shelf selected.
+        reload=False: only the [CLOSED] labels changed (open/close panel), so
+        reselect the shelf silently and leave the button list alone."""
+        current = self._current_shelf
+
+        # clear() would emit currentRowChanged(-1) and reset _current_shelf
+        self._shelf_list.blockSignals(True)
         self._shelf_list.clear()
         for name in core.get_all_shelf_names():
             display = self._get_shelf_display_name(name)
             self._shelf_list.addItem(QListWidgetItem(display))
+        self._shelf_list.blockSignals(False)
 
-        selected = False
-        if self._current_shelf:
-            display = self._get_shelf_display_name(self._current_shelf)
-            items = self._shelf_list.findItems(display, Qt.MatchExactly)
+        item = None
+        if current:
+            items = self._shelf_list.findItems(self._get_shelf_display_name(current), Qt.MatchExactly)
             if items:
-                self._shelf_list.setCurrentItem(items[0])
-                selected = True
+                item = items[0]
 
-        # Fallback: select first item if nothing selected
-        if not selected and self._shelf_list.count() > 0:
+        if item is not None:
+            if reload:
+                self._shelf_list.setCurrentItem(item)
+            else:
+                self._shelf_list.blockSignals(True)
+                self._shelf_list.setCurrentItem(item)
+                self._shelf_list.blockSignals(False)
+        elif self._shelf_list.count() > 0:
+            # Fallback: select first item if the shelf is gone
             self._shelf_list.setCurrentRow(0)
 
     def _select_shelf_by_name(self, name):
@@ -922,14 +936,14 @@ class ShelfManager(QDialog):
     def _open_shelf_panel(self):
         if self._current_shelf:
             widgets.create_panel(self._current_shelf)
-            self._refresh_shelf_list()
+            self._refresh_shelf_list(reload=False)
             self._update_panel_buttons()
 
     def _close_shelf_panel(self):
         if self._current_shelf:
             panel_name = widgets.PANEL_PREFIX + self._current_shelf.replace(" ", "_") + "WorkspaceControl"
             widgets.close_panel(panel_name)
-            self._refresh_shelf_list()
+            self._refresh_shelf_list(reload=False)
             self._update_panel_buttons()
 
     def _refresh_current_panel(self):
@@ -1501,5 +1515,5 @@ def notify_panel_closed(workspace_name):
     """Called by widgets.py when a panel is closed externally."""
     global _manager_instance
     if _manager_instance and _manager_instance.isVisible():
-        _manager_instance._refresh_shelf_list()
+        _manager_instance._refresh_shelf_list(reload=False)
         _manager_instance._update_panel_buttons()
